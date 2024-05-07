@@ -7,6 +7,8 @@ import datetime
 import argparse
 import os
 import io
+import keras
+from keras import layers
 
 parser = argparse.ArgumentParser(description='Train the graph neural network')
 parser.add_argument('--pad', help='extra padding for node embeding',  type=int, default=12)
@@ -50,28 +52,28 @@ REUSE=None
 batch_size=args.batch_size
 
 def M(h,e):
-    with tf.variable_scope('message'):
+    with tf.compat.v1.variable_scope('message'):
         bs = tf.shape(h)[0]
-        l = tf.layers.dense(e,args.Mhid ,activation=tf.nn.selu)
-        l = tf.layers.dense(l,N_H*N_H)
+        l = layers.Dense(e,args.Mhid ,activation=tf.nn.selu)
+        l = layers.Dense(l,N_H*N_H)
         l=tf.reshape(l,(bs,N_H,N_H))
         m=tf.matmul(l,tf.expand_dims(h,dim=2) )
         m=tf.reshape(m,(bs,N_H))
-        b = tf.layers.dense(e,args.Mhid ,activation=tf.nn.selu)
-        b = tf.layers.dense(b,N_H)
+        b = layers.Dense(e,args.Mhid ,activation=tf.nn.selu)
+        b = layers.Dense(b,N_H)
         m = m + b
 
 
         return m
 def U(h,m,x):
-    init = tf.truncated_normal_initializer(stddev=0.01)
-    with tf.variable_scope('update'):
-        wz=tf.get_variable(name='wz',shape=(N_H,N_H),dtype=tf.float32)
-        uz=tf.get_variable(name='uz',shape=(N_H,N_H),dtype=tf.float32)
-        wr=tf.get_variable(name='wr',shape=(N_H,N_H),dtype=tf.float32)
-        ur=tf.get_variable(name='ur',shape=(N_H,N_H),dtype=tf.float32)
-        W=tf.get_variable(name='W',shape=(N_H,N_H),dtype=tf.float32)
-        U=tf.get_variable(name='U',shape=(N_H,N_H),dtype=tf.float32)
+    init = tf.compat.v1.truncated_normal_initializer(stddev=0.01)
+    with tf.compat.v1.variable_scope('update'):
+        wz=tf.compat.v1.get_variable(name='wz',shape=(N_H,N_H),dtype=tf.compat.v1.float32)
+        uz=tf.compat.v1.get_variable(name='uz',shape=(N_H,N_H),dtype=tf.float32)
+        wr=tf.compat.v1.get_variable(name='wr',shape=(N_H,N_H),dtype=tf.float32)
+        ur=tf.compat.v1.get_variable(name='ur',shape=(N_H,N_H),dtype=tf.float32)
+        W=tf.compat.v1.get_variable(name='W',shape=(N_H,N_H),dtype=tf.float32)
+        U=tf.compat.v1.get_variable(name='U',shape=(N_H,N_H),dtype=tf.float32)
         
         z = tf.nn.sigmoid(tf.matmul(m,wz) + tf.matmul(h,uz))
         r = tf.nn.sigmoid(tf.matmul(m,wr) + tf.matmul(h,ur))
@@ -80,12 +82,12 @@ def U(h,m,x):
         return u
 
 def R(h,x):
-    with tf.variable_scope('readout'):
+    with tf.compat.v1.variable_scope('readout'):
         hx=tf.concat([h,x],axis=1)
-        i = tf.layers.dense(hx,args.rn,activation=tf.nn.tanh)
-        i = tf.layers.dense(i,args.rn)
-        j = tf.layers.dense(h,args.rn,activation=tf.nn.selu)
-        j = tf.layers.dense(j,args.rn)
+        i = layers.Dense(hx,args.rn,activation='tanh')
+        i = layers.Dense(i,args.rn)
+        j = layers.Dense(h,args.rn,activation='selu')
+        j = layers.Dense(j,args.rn)
 
         RR = tf.nn.sigmoid(i)
         RR = tf.multiply(RR,j)
@@ -98,10 +100,10 @@ def graph_features(x,e,first,second):
     h=tf.pad(x,[[0,0],[0,N_PAD]])
     #bs = tf.shape(x)[0]
     #h=tf.random_gamma((bs,N_H),2,2)
-    #initializer =tf.truncated_normal_initializer(0.0, 0.2)
-    initializer =tf.contrib.layers.xavier_initializer()
+    #initializer =tf.compat.v1.truncated_normal_initializer(0.0, 0.2)
+    initializer =tf.compat.v1.contrib.layers.xavier_initializer()
     for i in range(N_PAS):
-        with tf.variable_scope('features',
+        with tf.compat.v1.variable_scope('features',
         reuse=REUSE, 
         initializer=initializer,
         #regularizer=tf.contrib.layers.l2_regularizer(0.00000000001)
@@ -122,7 +124,7 @@ def graph_features(x,e,first,second):
             #TODO num_segments jako cecha
             
             num_segments=tf.cast(tf.reduce_max(second)+1,tf.int32)
-            m = tf.unsorted_segment_sum(m,second,num_segments)
+            m = tf.compat.v1.unsorted_segment_sum(m,second,num_segments)
             h = U(h,m,x)
 
             REUSE=True
@@ -131,15 +133,15 @@ def graph_features(x,e,first,second):
     return R(h,x)
 
 def inference(batch,reuse=None):
-    #initializer =tf.truncated_normal_initializer(0.0, 0.002)
-    initializer =tf.contrib.layers.xavier_initializer()
-    with tf.variable_scope("inference",
+    #initializer =tf.compat.v1.truncated_normal_initializer(0.0, 0.002)
+    initializer =tf.compat.v1.contrib.layers.xavier_initializer()
+    with tf.compat.v1.variable_scope("inference",
     reuse=reuse,
-    #regularizer=tf.contrib.layers.l2_regularizer(0.00000000000003),
+    #regularizer=tf.compat.v1.contrib.layers.l2_regularizer(0.00000000000003),
     initializer=initializer):
         l=batch
-        l=tf.layers.dense(l, args.ninf, activation=tf.nn.selu)
-        l=tf.layers.dense(l,1)
+        l=layers.Dense(l, args.ninf, activation=tf.nn.selu)
+        l=layers.Dense(l,1)
         return l
     
 def make_batch(serialized_batch):
@@ -153,27 +155,27 @@ def make_batch(serialized_batch):
         with tf.device("/cpu:0"):
             #Wypakowanie przykladu1
             with tf.name_scope('load'):    
-                features = tf.parse_single_example(
+                features = tf.compat.v1.parse_single_example(
                 serialized_batch[i],
                 features={
-                    'mu': tf.VarLenFeature(tf.float32),
-                    "Lambda": tf.VarLenFeature( tf.float32),
-                    "W":tf.FixedLenFeature([],tf.float32),
-                    "R":tf.VarLenFeature(tf.float32),
-                    "first":tf.VarLenFeature(tf.int64),
-                    "second":tf.VarLenFeature(tf.int64)})
+                    'mu': tf.compat.v1.VarLenFeature(tf.float32),
+                    "Lambda": tf.compat.v1.VarLenFeature( tf.float32),
+                    "W":tf.compat.v1.FixedLenFeature([],tf.float32),
+                    "R":tf.compat.v1.VarLenFeature(tf.float32),
+                    "first":tf.compat.v1.VarLenFeature(tf.int64),
+                    "second":tf.compat.v1.VarLenFeature(tf.int64)})
 
-                ar=[(tf.sparse_tensor_to_dense(features['mu'])-args.mu_shift)/args.mu_scale,
-                        (tf.sparse_tensor_to_dense(features['Lambda']))]
+                ar=[(tf.compat.v1.sparse_tensor_to_dense(features['mu'])-args.mu_shift)/args.mu_scale,
+                        (tf.compat.v1.sparse_tensor_to_dense(features['Lambda']))]
                 x=tf.stack(ar,axis=1)
 
-                e=tf.sparse_tensor_to_dense(features['R'])
+                e=tf.compat.v1.sparse_tensor_to_dense(features['R'])
                 # cecha jest od 0-1
                 #e = (tf.expand_dims(e,axis=1)-0.24)/0.09
                 e = tf.expand_dims(e,axis=1)
 
-                first=tf.sparse_tensor_to_dense(features['first'])
-                second=tf.sparse_tensor_to_dense(features['second'])
+                first=tf.compat.v1.sparse_tensor_to_dense(features['first'])
+                second=tf.compat.v1.sparse_tensor_to_dense(features['second'])
             
         g_feature = graph_features(x,e,first,second) 
         W = (features['W']-args.W_shift)/args.W_scale # 0.7-0.9
@@ -187,17 +189,17 @@ def make_batch(serialized_batch):
         labels = tf.reshape(labels,[bs,1])
     return batch, labels
 def make_trainset():
-    filename_queue = tf.train.string_input_producer( [args.train])
-    reader = tf.TFRecordReader()
+    filename_queue = tf.compat.v1.train.string_input_producer( [args.train])
+    reader = tf.compat.v1.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
-    serialized_batch= tf.train.shuffle_batch( [serialized_example], 
+    serialized_batch= tf.compat.v1.train.shuffle_batch( [serialized_example], 
                                                   batch_size=batch_size, capacity=args.buf, min_after_dequeue=batch_size, num_threads=2)
     return serialized_batch
 def make_testset():
-    filename_queue = tf.train.string_input_producer( [args.test])
-    reader = tf.TFRecordReader()
+    filename_queue = tf.compat.v1.train.string_input_producer( [args.test])
+    reader = tf.compat.v1.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
-    serialized_batch= tf.train.batch( [serialized_example], batch_size=200)
+    serialized_batch= tf.compat.v1.train.batch( [serialized_example], batch_size=200)
     
     return serialized_batch
 
@@ -232,17 +234,17 @@ if __name__== "__main__":
     g=tf.Graph()
 
     with g.as_default():
-        global_step = tf.train.get_or_create_global_step()
-        with tf.variable_scope('model'):
+        global_step = tf.compat.v1.train.get_or_create_global_step()
+        with tf.compat.v1.variable_scope('model'):
             serialized_batch = make_trainset()
             batch, labels = make_batch(serialized_batch)
-            n_batch = tf.layers.batch_normalization(batch) 
+            n_batch = layers.BatchNormalization(batch) 
             predictions = inference(n_batch)
 
-        loss= tf.losses.mean_squared_error(labels,predictions)        
+        loss= tf.compat.v1.losses.mean_squared_error(labels,predictions)        
         rel = tf.reduce_mean(tf.abs( (labels-predictions)/labels) )
 
-        trainables = tf.trainable_variables()
+        trainables = tf.compat.v1.trainable_variables()
         grads = tf.gradients(loss, trainables)
         grad_var_pairs = zip(grads, trainables)
         
@@ -252,32 +254,32 @@ if __name__== "__main__":
         #summaries.append(tf.summary.scalar('train_relative_absolute_error', rel)) 
         summary_op = tf.summary.merge(summaries)
 
-        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        update_ops = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            #o=tf.train.RMSPropOptimizer(learning_rate=0.001)
+            #o=tf.compat.v1.train.RMSPropOptimizer(learning_rate=0.001)
             #train = o.apply_gradients(grad_var_pairs)
-            train=tf.train.RMSPropOptimizer(learning_rate=0.001).minimize(loss, global_step=global_step)
+            train=tf.compat.v1.train.RMSPropOptimizer(learning_rate=0.001).minimize(loss, global_step=global_step)
 
         
         if False:
-            trainables = tf.trainable_variables()
+            trainables = tf.compat.v1.trainable_variables()
             grads = tf.gradients(loss, trainables)
-            grads, gg = tf.clip_by_global_norm(grads, clip_norm=1.0)
+            grads, gg = tf.compat.v1.clip_by_global_norm(grads, clip_norm=1.0)
             grad_var_pairs = zip(grads, trainables)
 
-            gs = tf.Variable(0, trainable=False, dtype=tf.int32)
-            lr = tf.train.exponential_decay(
+            gs = tf.compat.v1.Variable(0, trainable=False, dtype=tf.int32)
+            lr = tf.compat.v1.train.exponential_decay(
                 0.01, gs, 30,
                 0.999, staircase=True)
-            o=tf.train.GradientDescentOptimizer(learning_rate=0.01)
-            #o=tf.train.MomentumOptimizer(learning_rate=lr, momentum=0.1)
-            #o=tf.train.RMSPropOptimizer(learning_rate=0.001)
+            o=tf.compat.v1.train.GradientDescentOptimizer(learning_rate=0.01)
+            #o=tf.compat.v1.train.MomentumOptimizer(learning_rate=lr, momentum=0.1)
+            #o=tf.compat.v1.train.RMSPropOptimizer(learning_rate=0.001)
             train = o.apply_gradients(grad_var_pairs,global_step=gs)
         
         # Evaluation
-        with tf.variable_scope('model', reuse=True):
+        with tf.compat.v1.variable_scope('model', reuse=True):
             test_batch, test_labels = make_batch(make_testset()) 
-            test_batch = tf.layers.batch_normalization(test_batch,reuse=True)
+            test_batch = layers.batch_normalization(test_batch,reuse=True)
             test_predictions = inference(test_batch,reuse=True)
         test_relative = tf.abs( (test_labels-test_predictions)/(test_labels + args.W_shift/args.W_scale ) )
         mare = tf.reduce_mean(test_relative)
@@ -288,22 +290,22 @@ if __name__== "__main__":
         test_summaries.append(tf.summary.scalar('test_mse', tf.reduce_mean( (test_labels-test_predictions)**2 ) ) )
         test_summary_op = tf.summary.merge(test_summaries)
         
-        saver = tf.train.Saver(trainables + [global_step])
+        saver = tf.compat.v1.train.Saver(trainables + [global_step])
 
     with tf.Session(graph=g) as ses:
-        ses.run(tf.local_variables_initializer())
-        ses.run(tf.global_variables_initializer())
+        ses.run(tf.compat.v1.local_variables_initializer())
+        ses.run(tf.compat.v1.global_variables_initializer())
 
-        ckpt=tf.train.latest_checkpoint(args.log_dir)
+        ckpt=tf.compat.v1.train.latest_checkpoint(args.log_dir)
         if ckpt:
             print("Loading checkpint: %s" % (ckpt))
-            tf.logging.info("Loading checkpint: %s" % (ckpt))
+            tf.compat.v1.logging.info("Loading checkpint: %s" % (ckpt))
             saver.restore(ses, ckpt)
 
 
 
         coord = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(sess=ses, coord=coord)
+        threads = tf.compat.v1.train.start_queue_runners(sess=ses, coord=coord)
         writer=tf.summary.FileWriter(args.log_dir, ses.graph)
 
         try:
@@ -343,11 +345,11 @@ if __name__== "__main__":
                             plt.savefig(buf, format='png')
                             buf.seek(0)
                             plt.close()
-                            summary = tf.Summary(value= [
-                                tf.Summary.Value( tag="regression",
-                                    image=tf.Summary.Image(height = h, width =w, 
+                            summary = tf.compat.v1.Summary(value= [
+                                tf.compat.v1.Summary.Value( tag="regression",
+                                    image=tf.compat.v1.Summary.Image(height = h, width =w, 
                                         colorspace =3 , encoded_image_string = buf.read()) ),
-                                tf.Summary.Value(tag="R2", simple_value=R2)
+                                tf.compat.v1.Summary.Value(tag="R2", simple_value=R2)
                                 ])
                             writer.add_summary(summary, global_step=step)
 
