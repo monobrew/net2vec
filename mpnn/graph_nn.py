@@ -8,7 +8,7 @@ import argparse
 import os
 import io
 import keras
-from keras import layers
+from keras import layers, initializers
 
 parser = argparse.ArgumentParser(description='Train the graph neural network')
 parser.add_argument('--pad', help='extra padding for node embeding',  type=int, default=12)
@@ -54,13 +54,13 @@ batch_size=args.batch_size
 def M(h,e):
     with tf.compat.v1.variable_scope('message'):
         bs = tf.shape(h)[0]
-        l = layers.Dense(e,args.Mhid ,activation=tf.nn.selu)
-        l = layers.Dense(l,N_H*N_H)
+        l = layers.Dense(args.Mhid, activation="selu")(e)
+        l = layers.Dense(N_H*N_H)(l)
         l=tf.reshape(l,(bs,N_H,N_H))
         m=tf.matmul(l,tf.expand_dims(h,dim=2) )
         m=tf.reshape(m,(bs,N_H))
-        b = layers.Dense(e,args.Mhid ,activation=tf.nn.selu)
-        b = layers.Dense(b,N_H)
+        b = layers.Dense(args.Mhid, activation="selu")(e)
+        b = layers.Dense(N_H)(b)
         m = m + b
 
 
@@ -101,7 +101,7 @@ def graph_features(x,e,first,second):
     #bs = tf.shape(x)[0]
     #h=tf.random_gamma((bs,N_H),2,2)
     #initializer =tf.compat.v1.truncated_normal_initializer(0.0, 0.2)
-    initializer =tf.compat.v1.contrib.layers.xavier_initializer()
+    initializer = initializers.GlorotUniform()
     for i in range(N_PAS):
         with tf.compat.v1.variable_scope('features',
         reuse=REUSE, 
@@ -140,7 +140,7 @@ def inference(batch,reuse=None):
     #regularizer=tf.compat.v1.contrib.layers.l2_regularizer(0.00000000000003),
     initializer=initializer):
         l=batch
-        l=layers.Dense(l, args.ninf, activation=tf.nn.selu)
+        l=layers.Dense(l, args.ninf, activation="selu")
         l=layers.Dense(l,1)
         return l
     
