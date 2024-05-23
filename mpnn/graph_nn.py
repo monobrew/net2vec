@@ -52,19 +52,24 @@ REUSE=None
 batch_size=args.batch_size
 
 def M(h,e):
-    with tf.compat.v1.variable_scope('message'):
-        bs = tf.shape(h)[0]
-        l = layers.Dense(args.Mhid, activation="selu")(e)
-        l = layers.Dense(N_H*N_H)(l)
-        l=tf.reshape(l,(bs,N_H,N_H))
-        m=tf.matmul(l,tf.expand_dims(h,dim=2) )
-        m=tf.reshape(m,(bs,N_H))
-        b = layers.Dense(args.Mhid, activation="selu")(e)
-        b = layers.Dense(N_H)(b)
-        m = m + b
+    Mhid = args.Mhid
+    bs = tf.shape(h)[0]
+    inputs = keras.Input(shape = e.shape)
+    l = layers.Dense(Mhid, activation="selu")(inputs)
+    l = layers.Dense(N_H * N_H)(l)
+    l = tf.reshape((N_H, N_H))(l)
 
+    m = tf.matmul(l, tf.expand_dims(h, axis=-1))
+    m = layers.Reshape((N_H,))(m)
 
-        return m
+    
+    l = layers.Dense(Mhid, activation="selu")(inputs)
+    b = layers.Dense(N_H)(l)
+
+    out = m + b
+
+    return out
+
 def U(h,m,x):
     init = tf.compat.v1.truncated_normal_initializer(stddev=0.01)
     with tf.compat.v1.variable_scope('update'):
@@ -97,37 +102,34 @@ def R(h,x):
 def graph_features(x,e,first,second):
     global REUSE
     
-    h=tf.pad(x,[[0,0],[0,N_PAD]])
+    h=tf.pad(x, [[0, 0], [0, N_PAD]])
     #bs = tf.shape(x)[0]
     #h=tf.random_gamma((bs,N_H),2,2)
     #initializer =tf.compat.v1.truncated_normal_initializer(0.0, 0.2)
     initializer = initializers.GlorotUniform()
-    for i in range(N_PAS):
-        with tf.compat.v1.variable_scope('features',
-        reuse=REUSE, 
-        initializer=initializer,
-        #regularizer=tf.contrib.layers.l2_regularizer(0.00000000001)
-        ) as scope:
-            to_stack=[
-                #tf.gather(x,first),
+
+    for _ in range(N_PAS):
+        with tf.name_scope('features'):
+            if REUSE:
+                layers.Layer.call = tf.function(layers.Layer.call)
+            inputs =[
                 tf.gather(h,first),
                 e,
                 tf.gather(h,second),
-                #tf.gather(x,second),
             ]
             
-            m=M(tf.gather(h,first),e)
+            m = M(tf.gather(h,first), e)
             #Suma wplywajacych do wezla
             #czemu to dziala ?
             #m = tf.segment_sum(m,first) 
             #TODO wyjasnic
             #TODO num_segments jako cecha
             
-            num_segments=tf.cast(tf.reduce_max(second)+1,tf.int32)
-            m = tf.compat.v1.unsorted_segment_sum(m,second,num_segments)
+            num_segments = tf.cast(tf.reduce_max(second)+1,tf.int32)
+            m = tf.math.unsorted_segment_sum(m,second,num_segments)
             h = U(h,m,x)
 
-            REUSE=True
+            REUSE = True
         
 
     return R(h,x)
@@ -151,7 +153,7 @@ def make_batch(serialized_batch):
     labelto=tf.TensorArray(tf.float32,size=bs)
 
     condition = lambda i,a1,a2: i < bs
-    def body(i,to,lto):
+    def body (i,to,lto):
         with tf.device("/cpu:0"):
             #Wypakowanie przykladu1
             with tf.name_scope('load'):    
@@ -183,7 +185,9 @@ def make_batch(serialized_batch):
         return i+1,to.write(i,g_feature ),lto.write(i,W)
     
     with tf.control_dependencies([serialized_batch]):
-        _,batch,labelst = tf.while_loop(condition,body,[tf.constant(0),to,labelto])
+        _,batch,labelst = tf.while_loop(cond = condition,
+                                                  body = body,
+                                                  loop_vars = [tf.constant(0),to,labelto])
         batch = batch.stack()
         labels = labelst.stack()
         labels = tf.reshape(labels,[bs,1])
