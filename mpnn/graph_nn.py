@@ -9,6 +9,7 @@ import os
 import io
 import keras
 from keras import layers, initializers
+from class_layers import MessageLayer
 
 parser = argparse.ArgumentParser(description='Train the graph neural network')
 parser.add_argument('--pad', help='extra padding for node embeding',  type=int, default=12)
@@ -52,23 +53,24 @@ REUSE=None
 batch_size=args.batch_size
 
 def M(h,e):
-    Mhid = args.Mhid
-    bs = tf.shape(h)[0]
-    inputs = e
-    l = layers.Dense(Mhid, activation="selu")(inputs)
-    l = layers.Dense(N_H * N_H, kernel_initializer="zeros")(l)
-    l = tf.reshape((N_H, N_H))(l)
+    with tf.compat.v1.init_scope():
+        Mhid = args.Mhid
+        bs = tf.shape(h)[0]
+        inputs = e
+        l = layers.Dense(Mhid, activation="selu")(inputs)
+        l = layers.Dense(N_H * N_H, kernel_initializer="zeros")(l)
+        l = tf.reshape((N_H, N_H))(l)
 
-    m = tf.matmul(l, tf.expand_dims(h, axis=-1))
-    m = layers.Reshape((N_H,))(m)
+        m = tf.matmul(l, tf.expand_dims(h, axis=-1))
+        m = layers.Reshape((N_H,))(m)
 
-    
-    l = layers.Dense(Mhid, activation="selu", kernel_initializer="zeros")(inputs)
-    b = layers.Dense(N_H)(l)
 
-    out = m + b
+        l = layers.Dense(Mhid, activation="selu", kernel_initializer="zeros")(inputs)
+        b = layers.Dense(N_H)(l)
 
-    return out
+        out = m + b
+
+        return out
 
 def U(h,m,x):
     init = tf.compat.v1.truncated_normal_initializer(stddev=0.01)
@@ -118,7 +120,9 @@ def graph_features(x,e,first,second):
                 tf.gather(h,second),
             ]
             
-            m = M(tf.gather(h,first), e)
+            # m = M(tf.gather(h,first), e)
+            m = MessageLayer(args)(tf.gather(h,first), e)
+
             #Suma wplywajacych do wezla
             #czemu to dziala ?
             #m = tf.segment_sum(m,first) 

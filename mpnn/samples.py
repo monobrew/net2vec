@@ -50,7 +50,7 @@ class SNDLib(GraphProvider):
 
 def make_sample(provider, rl=0.3, rh=0.7):
     Gm=provider.get()
-    A=nx.convert_matrix.to_numpy_matrix(Gm)
+    A=nx.convert_matrix.to_numpy_array(Gm)
 
     # Make all intensities addup to 1
     L=np.random.uniform(size=(len(Gm),1))
@@ -81,15 +81,15 @@ def make_sample(provider, rl=0.3, rh=0.7):
     return mu,L,R,W,Gm
 
 def _int64_feature(value):
-    return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
+    return tf.compat.v1.train.Feature(int64_list=tf.compat.v1.train.Int64List(value=value))
 
 def _float_feature(value):
-    return tf.train.Feature(float_list=tf.train.FloatList(value=value))
+    return tf.compat.v1.train.Feature(float_list=tf.compat.v1.train.FloatList(value=value))
 
 def make_dataset(count, file, producer):
     #n=10
     #p=0.2
-    writer = tf.python_io.TFRecordWriter(file)
+    writer = tf.compat.v1.python_io.TFRecordWriter(file)
     for i in range(count):
         if not i % 500:
             print('{} generated {} samples.'.format(str(datetime.datetime.now()) , i ) )
@@ -103,7 +103,7 @@ def make_dataset(count, file, producer):
         first,last=np.nonzero(R)
         e=R[first,last].tolist()[0]
 
-        example = tf.train.Example(features=tf.train.Features(feature={
+        example = tf.compat.v1.train.Example(features=tf.compat.v1.train.Features(feature={
             'mu': _float_feature(mu),
             'Lambda': _float_feature(L),
             'W':_float_feature([W]),
