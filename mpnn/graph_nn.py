@@ -54,16 +54,16 @@ batch_size=args.batch_size
 def M(h,e):
     Mhid = args.Mhid
     bs = tf.shape(h)[0]
-    inputs = keras.Input(shape = e.shape)
+    inputs = e
     l = layers.Dense(Mhid, activation="selu")(inputs)
-    l = layers.Dense(N_H * N_H)(l)
+    l = layers.Dense(N_H * N_H, kernel_initializer="zeros")(l)
     l = tf.reshape((N_H, N_H))(l)
 
     m = tf.matmul(l, tf.expand_dims(h, axis=-1))
     m = layers.Reshape((N_H,))(m)
 
     
-    l = layers.Dense(Mhid, activation="selu")(inputs)
+    l = layers.Dense(Mhid, activation="selu", kernel_initializer="zeros")(inputs)
     b = layers.Dense(N_H)(l)
 
     out = m + b

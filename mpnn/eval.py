@@ -13,11 +13,11 @@ import graph_nn
 args = graph_nn.args
 
 def make_set():
-    #filename_queue = tf.train.string_input_producer( ['test.tfrecords'])
-    #reader = tf.TFRecordReader()
+    #filename_queue = tf.compat.v1.train.string_input_producer( ['test.tf.compat.v1records'])
+    #reader = tf.compat.v1.tf.compat.v1RecordReader()
     #_, serialized_example = reader.read(filename_queue)
-    #serialized_batch= tf.train.batch( [serialized_example], batch_size=200)
-    ds = tf.data.TFRecordDataset([args.eval])
+    #serialized_batch= tf.compat.v1.train.batch( [serialized_example], batch_size=200)
+    ds = tf.compat.v1.data.TFRecordDataset([args.eval])
     ds = ds.batch(args.batch_size)
     serialized_batch = ds.make_one_shot_iterator().get_next()
     return serialized_batch
@@ -25,28 +25,28 @@ def make_set():
 
 def main():
     REUSE=None
-    g=tf.Graph()
+    g=tf.compat.v1.Graph()
 
     with g.as_default():
-        global_step = tf.train.get_or_create_global_step()
-        with tf.variable_scope('model'):
+        global_step = tf.compat.v1.train.get_or_create_global_step()
+        with tf.compat.v1.variable_scope('model'):
             serialized_batch = make_set()
             batch, labels = graph_nn.make_batch(serialized_batch)
-            n_batch = tf.layers.batch_normalization(batch) 
+            n_batch = tf.compat.v1.layers.batch_normalization(batch) 
             predictions = graph_nn.inference(n_batch)
 
-        loss= tf.losses.mean_squared_error(labels,predictions)        
+        loss= tf.compat.v1.losses.mean_squared_error(labels,predictions)        
         
-        saver = tf.train.Saver(tf.trainable_variables() + [global_step])
+        saver = tf.compat.v1.train.Saver(tf.compat.v1.trainable_variables() + [global_step])
 
-    with tf.Session(graph=g) as ses:
-        ses.run(tf.local_variables_initializer())
-        ses.run(tf.global_variables_initializer())
+    with tf.compat.v1.Session(graph=g) as ses:
+        ses.run(tf.compat.v1.local_variables_initializer())
+        ses.run(tf.compat.v1.global_variables_initializer())
 
-        ckpt=tf.train.latest_checkpoint(args.log_dir)
+        ckpt=tf.compat.v1.train.latest_checkpoint(args.log_dir)
         if ckpt:
             print("Loading checkpint: %s" % (ckpt))
-            tf.logging.info("Loading checkpint: %s" % (ckpt))
+            tf.compat.v1.logging.info("Loading checkpint: %s" % (ckpt))
             saver.restore(ses, ckpt)
         
         label_py=[]
