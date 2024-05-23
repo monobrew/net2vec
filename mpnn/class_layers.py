@@ -6,8 +6,9 @@ class MessageLayer(layers.Layer):
         super(MessageLayer, self).__init__()
         self.N_H = args.pad + 2
         self.Mhid = args.Mhid
-    def call(self, h, e):
-        l = layers.Dense(self.Mhid, activation="selu")(e)
+    def call(self, h : tf.Tensor, e : tf.Tensor):
+        l = layers.Dense(self.Mhid, activation="selu", kernel_initializer="zeros")
+        l = l(e)
         l = layers.Dense(self.N_H * self.N_H, kernel_initializer="zeros")(l)
         l = tf.reshape((self.N_H, self.N_H))(l)
 

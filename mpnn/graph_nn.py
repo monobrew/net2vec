@@ -121,7 +121,11 @@ def graph_features(x,e,first,second):
             ]
             
             # m = M(tf.gather(h,first), e)
-            m = MessageLayer(args)(tf.gather(h,first), e)
+            e = tf.reshape(e, [n if n!= None else 1 for n in e.shape])
+            _h = tf.gather(h,first)
+            _h = tf.reshape(_h, [n if n!= None else 1 for n in _h.shape])
+
+            m = MessageLayer(args)(_h, e)
 
             #Suma wplywajacych do wezla
             #czemu to dziala ?
@@ -175,7 +179,7 @@ def make_batch(serialized_batch):
                         (tf.compat.v1.sparse_tensor_to_dense(features['Lambda']))]
                 x=tf.stack(ar,axis=1)
 
-                e=tf.compat.v1.sparse_tensor_to_dense(features['R'])
+                e=tf.sparse.to_dense(features['R'])
                 # cecha jest od 0-1
                 #e = (tf.expand_dims(e,axis=1)-0.24)/0.09
                 e = tf.expand_dims(e,axis=1)
