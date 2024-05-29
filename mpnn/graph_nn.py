@@ -9,7 +9,7 @@ import os
 import io
 import keras
 from keras import layers, initializers
-from class_layers import MessageLayer
+from class_layers import MessageBlock, UpdateBlock, ReadoutBlock
 
 parser = argparse.ArgumentParser(description='Train the graph neural network')
 parser.add_argument('--pad', help='extra padding for node embeding',  type=int, default=12)
@@ -121,11 +121,11 @@ def graph_features(x,e,first,second):
             ]
             
             # m = M(tf.gather(h,first), e)
-            e = tf.reshape(e, [n if n!= None else 1 for n in e.shape])
-            _h = tf.gather(h,first)
-            _h = tf.reshape(_h, [n if n!= None else 1 for n in _h.shape])
+            # e = tf.reshape(e, [n if n!= None else 1 for n in e.shape])
+            # _h = tf.gather(h,first)
+            # _h = tf.reshape(_h, [n if n!= None else 1 for n in _h.shape])
 
-            m = MessageLayer(args)(_h, e)
+            m = MessageBlock(args.pad, args.Mhid)(h, e)
 
             #Suma wplywajacych do wezla
             #czemu to dziala ?
@@ -135,23 +135,25 @@ def graph_features(x,e,first,second):
             
             num_segments = tf.cast(tf.reduce_max(second)+1,tf.int32)
             m = tf.math.unsorted_segment_sum(m,second,num_segments)
-            h = U(h,m,x)
+            # h = U(h,m,x)
+            h = UpdateBlock(args.pad)(h, m)
 
             REUSE = True
         
 
-    return R(h,x)
+    #return R(h,x)
+    return ReadoutBlock(args.rn)(h,x)
 
 def inference(batch,reuse=None):
     #initializer =tf.compat.v1.truncated_normal_initializer(0.0, 0.002)
-    initializer =tf.compat.v1.contrib.layers.xavier_initializer()
+    initializer = initializers.glorot_uniform()
     with tf.compat.v1.variable_scope("inference",
     reuse=reuse,
     #regularizer=tf.compat.v1.contrib.layers.l2_regularizer(0.00000000000003),
     initializer=initializer):
         l=batch
-        l=layers.Dense(l, args.ninf, activation="selu")
-        l=layers.Dense(l,1)
+        l=layers.Dense(args.ninf, activation="selu")(l)
+        l=layers.Dense(1)(l)
         return l
     
 def make_batch(serialized_batch):
@@ -250,7 +252,7 @@ if __name__== "__main__":
         with tf.compat.v1.variable_scope('model'):
             serialized_batch = make_trainset()
             batch, labels = make_batch(serialized_batch)
-            n_batch = layers.BatchNormalization(batch) 
+            n_batch = layers.BatchNormalization()(batch) 
             predictions = inference(n_batch)
 
         loss= tf.compat.v1.losses.mean_squared_error(labels,predictions)        

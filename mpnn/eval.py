@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import datetime
 import argparse
 import os
+from keras import layers
 
 import graph_nn
 
@@ -32,7 +33,7 @@ def main():
         with tf.compat.v1.variable_scope('model'):
             serialized_batch = make_set()
             batch, labels = graph_nn.make_batch(serialized_batch)
-            n_batch = tf.compat.v1.layers.batch_normalization(batch) 
+            n_batch = layers.BatchNormalization()(batch) 
             predictions = graph_nn.inference(n_batch)
 
         loss= tf.compat.v1.losses.mean_squared_error(labels,predictions)        
@@ -53,7 +54,7 @@ def main():
         predictions_py=[]
 
         for i in range(16):
-            val_label_py, val_predictions_py, step = ses.run( [labels,predictions, global_step] )
+            val_label_py, val_predictions_py, step = ses.run( [labels, predictions, global_step] )
             label_py.append(val_label_py)
             predictions_py.append(val_predictions_py)
 

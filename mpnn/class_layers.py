@@ -1,23 +1,73 @@
 import tensorflow as tf
+import keras
 from keras import layers
 
-class MessageLayer(layers.Layer):
-    def __init__(self, args):
-        super(MessageLayer, self).__init__()
-        self.N_H = args.pad + 2
-        self.Mhid = args.Mhid
+class MessageBlock(layers.Layer):
+    def __init__(self, pad : int = 12, Mhid : int = 8):
+        super(MessageBlock, self).__init__()
+        self.N_H = pad + 2
+        self.Mhid = Mhid
+        self.dense11 = layers.Dense(self.Mhid, activation="selu", kernel_initializer="zeros")
+        self.dense12 = layers.Dense(self.N_H * self.N_H, kernel_initializer="zeros")
+        self.reshape1 = layers.Reshape((self.N_H, self.N_H))
+        self.mul = layers.Multiply()
+        self.reduce_sum = layers.Lambda(lambda x : tf.reduce_sum(x, axis=2))
+        self.dense21 = layers.Dense(self.Mhid, activation="selu", kernel_initializer="zeros")
+        self.dense22 = layers.Dense(self.N_H)
+        self.add = layers.Add()
     def call(self, h : tf.Tensor, e : tf.Tensor):
-        l = layers.Dense(self.Mhid, activation="selu", kernel_initializer="zeros")
-        l = l(e)
-        l = layers.Dense(self.N_H * self.N_H, kernel_initializer="zeros")(l)
-        l = tf.reshape((self.N_H, self.N_H))(l)
+        l = self.dense11(e)
+        l = self.dense12(l)
+        l = self.reshape1(l)
+        m = self.mul([l, h])
+        m = self.reduce_sum(m)
+        k = self.dense21(e)
+        b = self.dense22(k)
 
-        m = tf.matmul(l, tf.expand_dims(h, axis=-1))
-        m = layers.Reshape((self.N_H,))(m)
-        
-        l = layers.Dense(self.Mhid, activation="selu", kernel_initializer="zeros")(e)
-        b = layers.Dense(self.N_H)(l)
-
-        out = m + b
+        out = self.add([m, b])
 
         return out
+    
+class UpdateBlock(layers.Layer):
+    def __init__(self, pad : int = 12):
+        self.N_H = pad + 2
+        super(UpdateBlock, self).__init__()
+        self.wz = layers.Dense(self.N_H, use_bias=False, name='wz')
+        self.uz = layers.Dense(self.N_H, use_bias=False, name='uz')
+        self.wr = layers.Dense(self.N_H, use_bias=False, name='wr')
+        self.ur = layers.Dense(self.N_H, use_bias=False, name='ur')
+        self.W = layers.Dense(self.N_H, use_bias=False, name='W')
+        self.U = layers.Dense(self.N_H, use_bias=False, name='U')
+    
+        
+
+    def call(self, h, m):
+        z = tf.nn.sigmoid(self.wz(m) + self.uz(h))
+        r = tf.nn.sigmoid(self.wr(m) + self.ur(h))
+        h_tylda = tf.nn.tanh(self.W(m) + self.U(r*h))
+        u = (1.0 - z) * h + z * h_tylda
+        return u
+
+class ReadoutBlock(layers.Layer):
+    def __init__(self, rn : int):
+        super(ReadoutBlock, self).__init__()
+        self.rn = rn
+
+        self.concat = layers.Concatenate()
+        self.dense01 = layers.Dense(self.rn, activation='tanh')
+        self.dense02 = layers.Dense(self.rn, activation='sigmoid')
+        self.dense11 = layers.Dense(self.rn, activation='selu')
+        self.dense12 = layers.Dense(self.rn, activation='linear')
+        self.mul = layers.Multiply()
+        self.reduce_sum = layers.Lambda(lambda x : tf.reduce_sum(x, axis=0))
+    def call(self, h, x):
+        hx = self.concat([h, x])
+        i = self.dense01(hx)
+        i = self.dense02(i)
+        j = self.dense11(h)
+        j = self.dense12(j)
+
+        RR = self.mul([i, j])
+        RR = self.reduce_sum(RR)
+
+        return RR
