@@ -7,6 +7,9 @@ import datetime
 import argparse
 import os
 import io
+import keras
+
+tf1 = tf.compat.v1
 
 parser = argparse.ArgumentParser(description='Train the graph neural network')
 parser.add_argument('--pad', help='extra padding for node embeding',  type=int, default=12)
@@ -54,27 +57,27 @@ batch_size=args.batch_size
 def parse(serialized):
     with tf.device("/cpu:0"):
         with tf.name_scope('parse'):
-            features = tf.parse_single_example(
+            features = tf1.parse_single_example(
                 serialized,
                 features={
-                    'mu': tf.VarLenFeature(tf.float32),
-                    "Lambda": tf.VarLenFeature( tf.float32),
-                    "W":tf.FixedLenFeature([],tf.float32),
-                    "R":tf.VarLenFeature(tf.float32),
-                    "first":tf.VarLenFeature(tf.int64),
-                    "second":tf.VarLenFeature(tf.int64)})
+                    'mu': tf1.VarLenFeature(tf.float32),
+                    "Lambda": tf1.VarLenFeature( tf.float32),
+                    "W":tf1.FixedLenFeature([],tf.float32),
+                    "R":tf1.VarLenFeature(tf.float32),
+                    "first":tf1.VarLenFeature(tf.int64),
+                    "second":tf1.VarLenFeature(tf.int64)})
 
-            ar=[(tf.sparse_tensor_to_dense(features['mu'])-args.mu_shift)/args.mu_scale,
-                    (tf.sparse_tensor_to_dense(features['Lambda']))]
+            ar=[(tf1.sparse_tensor_to_dense(features['mu'])-args.mu_shift)/args.mu_scale,
+                    (tf1.sparse_tensor_to_dense(features['Lambda']))]
             x=tf.stack(ar,axis=1)
 
-            e=tf.sparse_tensor_to_dense(features['R'])
+            e=tf1.sparse_tensor_to_dense(features['R'])
             # cecha jest od 0-1
             #e = (tf.expand_dims(e,axis=1)-0.24)/0.09
             e = tf.expand_dims(e,axis=1)
 
-            first=tf.sparse_tensor_to_dense(features['first'])
-            second=tf.sparse_tensor_to_dense(features['second'])
+            first=tf1.sparse_tensor_to_dense(features['first'])
+            second=tf1.sparse_tensor_to_dense(features['second'])
             
             W = (features['W']-args.W_shift)/args.W_scale
             
@@ -109,7 +112,7 @@ def make_set():
     ds = tf.data.TFRecordDataset([args.eval])
     ds = ds.map(parse)
     ds = ds.apply(tf.data.experimental.shuffle_and_repeat(args.buf))
-    it = ds.make_one_shot_iterator()
+    it = tf1.data.make_one_shot_iterator(ds)
     with tf.device("/cpu:0"):
         return transformation_func(it, args.batch_size)
 
@@ -118,14 +121,14 @@ def make_trainset():
     ds = tf.data.TFRecordDataset([args.train])
     ds = ds.map(parse)
     ds = ds.apply(tf.data.experimental.shuffle_and_repeat(args.buf))
-    it = ds.make_one_shot_iterator()
+    it = tf1.data.make_one_shot_iterator(ds)
     with tf.device("/cpu:0"):
         return transformation_func(it, args.batch_size)
 
 def make_testset():
     ds = tf.data.TFRecordDataset([args.test])
     ds = ds.map(parse)
-    it = ds.make_one_shot_iterator()
+    it = tf1.data.make_one_shot_iterator(ds)
     with tf.device("/cpu:0"):
         return transformation_func(it, args.batch_size)
 
@@ -151,47 +154,28 @@ def fitquality (y,f):
 
     return R2
 
-class MessagePassing(tf.keras.Model):
+class MessagePassing(keras.Model):
     def __init__(self):
         super(MessagePassing, self).__init__()
         
-        self.l = tf.keras.Sequential([
-            tf.keras.layers.Dense(args.Mhid,activation=tf.nn.selu),
-            tf.keras.layers.Dense(N_H*N_H),
-            tf.keras.layers.Reshape((N_H,N_H))
+        self.l = keras.Sequential([
+            keras.layers.Dense(args.Mhid,activation=tf.nn.selu),
+            keras.layers.Dense(N_H*N_H),
+            keras.layers.Reshape((N_H,N_H))
         ])
         
-        self.b = tf.keras.Sequential([
-            tf.keras.layers.Dense(args.Mhid,activation=tf.nn.selu),
-            tf.keras.layers.Dense(N_H)
+        self.b = keras.Sequential([
+            keras.layers.Dense(args.Mhid,activation=tf.nn.selu),
+            keras.layers.Dense(N_H)
         ])
         
-        self.u = tf.keras.layers.GRUCell(N_H)
-        
-        self.i = tf.keras.Sequential([
-            tf.keras.layers.Dense(args.rn,activation=tf.nn.tanh),
-            tf.keras.layers.Dense(args.rn)
-        ])
-
-        self.j = tf.keras.Sequential([
-            tf.keras.layers.Dense(args.rn,activation=tf.nn.selu),
-            tf.keras.layers.Dense(args.rn)
-        ])
-        
-        self.f = tf.keras.Sequential([
-            tf.keras.layers.Dense(args.ninf,activation=tf.nn.selu),
-            tf.keras.layers.Dense(1)            
-        ])
-
+        self.u = keras.layers.GRUCell(N_H)
+    
     def build(self, input_shape=None):
         del input_shape
         self.l.build(tf.TensorShape([None, 1]))
         self.b.build(tf.TensorShape([None, 1]))
         self.u.build(tf.TensorShape([None, N_H]))
-        self.i.build(tf.TensorShape([None, N_H+2]))
-        self.j.build(tf.TensorShape([None, N_H+2]))
-        self.j.build(tf.TensorShape([None, args.rn]))
-
         self.built = True
         
     def call(self, inputs, training=False):
@@ -201,10 +185,12 @@ class MessagePassing(tf.keras.Model):
         for i in range(N_PAS):
             m = self._M(tf.gather(h,first),e)
             num_segments=tf.cast(tf.reduce_max(second)+1,tf.int32)
-            m = tf.unsorted_segment_sum(m,second,num_segments)
+            m = tf1.unsorted_segment_sum(m,second,num_segments)
             h,_ = self.u(m,[h])
         node_batch = self._R(h,x,segment)
-        return self.f(node_batch)
+        f = keras.layers.Dense(args.ninf, activation='selu')(node_batch)
+        f = keras.layers.Dense(1)(f)
+        return f
     
     def _M(self,h,e):
         a = self.l(e)
@@ -215,119 +201,39 @@ class MessagePassing(tf.keras.Model):
     
     def _R(self,h,x,segment):
         hx=tf.concat([h,x],axis=1)
-        RR = tf.nn.sigmoid(self.i(hx))
-        RR = tf.multiply(RR,self.j(hx))
-        return tf.segment_sum(RR,segment)
+        i = keras.layers.Dense(args.rn, activation='tanh')(hx)
+        RR = keras.layers.Dense(args.rn, activation='sigmoid')(i)
+        j = keras.layers.Dense(args.rn, activation='selu')(hx)
+        j = keras.layers.Dense(args.rn)(j)
+        RR = tf.multiply(RR, j)
+        return tf1.segment_sum(RR,segment)
 
-
-
-if __name__== "__main__":
+if __name__ == "__main__":
     
     if not os.path.exists(args.log_dir):
         os.makedirs(args.log_dir)
     print(args)
 
-
     g=tf.Graph()
 
     with g.as_default():
-        global_step = tf.train.get_or_create_global_step()
-
-        ((x,e,first,second,segment),W)=make_trainset()
 
         model = MessagePassing()
 
-        predictions = model((x,e,first,second,segment),training=True)
-        labels=W
-        loss= tf.losses.mean_squared_error(W,predictions)        
-        rel = tf.reduce_mean(tf.abs( (labels-predictions)/labels) )
+        (train_batch, train_labels) = make_trainset()
+        train_batch = list(train_batch)
 
-        trainables = model.variables
-        grads = tf.gradients(loss, trainables)
-        grad_var_pairs = zip(grads, trainables)
-        
-        summaries = [tf.summary.histogram(var.op.name, var) for var in trainables]
-        summaries += [tf.summary.histogram(g.op.name, g) for g in grads if g is not None]
-        summaries.append(tf.summary.scalar('train_mse', loss)) 
-        #summaries.append(tf.summary.scalar('train_relative_absolute_error', rel)) 
-        summary_op = tf.summary.merge(summaries)
+        model.compile(
+            loss = keras.losses.mean_squared_error,
+            metrics = ['mae'],
+            optimizer = keras.optimizers.RMSprop(learning_rate=0.001)
+        )
 
-        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        with tf.control_dependencies(update_ops):
-            #o=tf.train.RMSPropOptimizer(learning_rate=0.001)
-            #train = o.apply_gradients(grad_var_pairs)
-            train=tf.train.RMSPropOptimizer(learning_rate=0.001).minimize(loss, global_step=global_step)
-
-        
-      
-        test_batch, test_labels = make_testset() 
-
-        test_predictions = model(test_batch,training=False)
-        test_relative = tf.abs( (test_labels-test_predictions)/(test_labels + args.W_shift/args.W_scale ) )
-        mare = tf.reduce_mean(test_relative)
-
-        test_summaries = [tf.summary.histogram('test_relative_absolute_error', test_relative)]
-        test_summaries.append(tf.summary.scalar('test_mse', tf.reduce_mean( (test_labels-test_predictions)**2 ) ) )
-        test_summary_op = tf.summary.merge(test_summaries)
-        
-        saver = tf.train.Saver(trainables + [global_step])
-
-    with tf.Session(graph=g) as ses:
-        ses.run(tf.local_variables_initializer())
-        ses.run(tf.global_variables_initializer())
-
-        ckpt=tf.train.latest_checkpoint(args.log_dir)
-        if ckpt:
-            print("Loading checkpint: %s" % (ckpt))
-            tf.logging.info("Loading checkpint: %s" % (ckpt))
-            saver.restore(ses, ckpt)
+        test_batch, test_labels = make_testset()
+    
+    model.summary()
+    model.fit(train_batch, train_labels)
 
 
-        writer=tf.summary.FileWriter(args.log_dir, ses.graph)
 
-        for i in range(args.I):
-            _,mse_loss,summary_py, step = ses.run([train,loss,summary_op, global_step])
-            writer.add_summary(summary_py, global_step=step)
-            
-            if step % 100 ==0:
-                test_label_py, test_predictions_py, test_summary_py = ses.run([test_labels, test_predictions, test_summary_op])
-                #test_ae = np.abs((test_predictions_py-test_label_py)/test_label_py)
-                test_error = test_predictions_py-test_label_py
-                R2 = fitquality(test_label_py,test_predictions_py)
-
-                print('{} step: {} train_mse: {}, test_mse: {} R**2: {}'.format(
-                    str(datetime.datetime.now()),
-                    step,
-                    mse_loss,
-                    np.mean(test_error**2),
-                    #np.max(np.abs(test_error)),
-                    R2 ), flush=True ) 
-                
-                writer.add_summary(test_summary_py, global_step=step)
-                checkpoint_path = os.path.join(args.log_dir, 'model.ckpt')
-                saver.save(ses, checkpoint_path, global_step=step)
-                #make scatter plot
-                fig = plt.figure()
-                plt.plot(test_label_py,test_predictions_py,'.')
-                line_1(test_label_py, test_label_py)
-                plt.xlabel('test label')
-                plt.ylabel('test predictions')
-                plt.title(str(step))
-                #fig_path = os.path.join(args.log_dir,'scatter-{0:08}.png'.format(step) )
-                #plt.savefig(fig_path)
-                with io.BytesIO() as buf:
-                    w,h = fig.canvas.get_width_height()
-                    plt.savefig(buf, format='png')
-                    buf.seek(0)
-                    plt.close()
-                    summary = tf.Summary(value= [
-                        tf.Summary.Value( tag="regression",
-                            image=tf.Summary.Image(height = h, width =w, 
-                                colorspace =3 , encoded_image_string = buf.read()) ),
-                        tf.Summary.Value(tag="R2", simple_value=R2)
-                        ])
-                    writer.add_summary(summary, global_step=step)
-
-
-        writer.flush()
-        writer.close()
+   

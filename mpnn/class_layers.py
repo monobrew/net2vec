@@ -32,21 +32,11 @@ class UpdateBlock(layers.Layer):
     def __init__(self, pad : int = 12):
         self.N_H = pad + 2
         super(UpdateBlock, self).__init__()
-        self.wz = layers.Dense(self.N_H, use_bias=False, name='wz')
-        self.uz = layers.Dense(self.N_H, use_bias=False, name='uz')
-        self.wr = layers.Dense(self.N_H, use_bias=False, name='wr')
-        self.ur = layers.Dense(self.N_H, use_bias=False, name='ur')
-        self.W = layers.Dense(self.N_H, use_bias=False, name='W')
-        self.U = layers.Dense(self.N_H, use_bias=False, name='U')
-    
-        
+        self.gru = layers.GRUCell(self.N_H)
 
     def call(self, h, m):
-        z = tf.nn.sigmoid(self.wz(m) + self.uz(h))
-        r = tf.nn.sigmoid(self.wr(m) + self.ur(h))
-        h_tylda = tf.nn.tanh(self.W(m) + self.U(r*h))
-        u = (1.0 - z) * h + z * h_tylda
-        return u
+        x = self.gru(tf.concat(m, h))
+        return x
 
 class ReadoutBlock(layers.Layer):
     def __init__(self, rn : int):
