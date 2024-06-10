@@ -33,7 +33,7 @@ def stat_args(name, shift=0,scale=1):
         type=float, default=scale)
 
 stat_args('mu',shift=0.34, scale=0.27)
-stat_args('W',shift=55.3, scale=22.0)
+stat_args('W',shift=55.3, scale=22.0) # magic number ? ask questions to OG authors
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -139,7 +139,7 @@ def inference(batch,reuse=None):
     initializer=initializer):
         l=batch
         l=tf.layers.dense(l, args.ninf, activation=tf.nn.selu)
-        l=tf.layers.dense(l,1)
+        l=tf.layers.dense(l, 1)
         return l
     
 def make_batch(serialized_batch):
@@ -158,7 +158,7 @@ def make_batch(serialized_batch):
                 features={
                     'mu': tf.VarLenFeature(tf.float32),
                     "Lambda": tf.VarLenFeature( tf.float32),
-                    "W":tf.FixedLenFeature([],tf.float32),
+                    "W":tf.VarLenFeature(tf.float32),
                     "R":tf.VarLenFeature(tf.float32),
                     "first":tf.VarLenFeature(tf.int64),
                     "second":tf.VarLenFeature(tf.int64)})
@@ -175,8 +175,9 @@ def make_batch(serialized_batch):
                 first=tf.sparse_tensor_to_dense(features['first'])
                 second=tf.sparse_tensor_to_dense(features['second'])
             
-        g_feature = graph_features(x,e,first,second) 
-        W = (features['W']-args.W_shift)/args.W_scale # 0.7-0.9
+        g_feature = graph_features(x,e,first,second)
+        W_dense = tf.sparse_tensor_to_dense(features['W'])
+        W = (tf.subtract(W_dense, args.W_shift)) / args.W_scale # 0.7-0.9
 
         return i+1,to.write(i,g_feature ),lto.write(i,W)
     
@@ -308,7 +309,7 @@ if __name__== "__main__":
 
         try:
             while not coord.should_stop():
-                    _,mse_loss,summary_py, step = ses.run([train,loss,summary_op, global_step])
+                    _,mse_loss,summary_py, step = ses.run([train,loss,summary_op, global_step]) # expectet input of size batch_size
                     writer.add_summary(summary_py, global_step=step)
 
                     if step % 100 ==0:
