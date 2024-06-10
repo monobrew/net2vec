@@ -54,8 +54,8 @@ def main():
 
         for i in range(16):
             val_label_py, val_predictions_py, step = ses.run( [labels,predictions, global_step] )
-            label_py.append(val_label_py)
-            predictions_py.append(val_predictions_py)
+            label_py.append(val_label_py[0]) # multiple elements, taken first
+            predictions_py.append(val_predictions_py[0])
 
         label_py = np.concatenate(label_py,axis=0)
         predictions_py = np.concatenate(predictions_py,axis=0)
