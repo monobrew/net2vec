@@ -52,11 +52,15 @@ def main():
         label_py=[]
         predictions_py=[]
 
+        # TODO: Fix plotting?
+
         for i in range(16):
             val_label_py, val_predictions_py, step = ses.run( [labels,predictions, global_step] )
-            label_py.append(val_label_py[0]) # multiple elements, taken first
-            predictions_py.append(val_predictions_py[0])
+            label_py.append(val_label_py)
+            predictions_py.append(val_predictions_py)
 
+        #label_py = np.sum(label_py,axis=2)
+        #predictions_py = np.sum(predictions_py,axis=2)
         label_py = np.concatenate(label_py,axis=0)
         predictions_py = np.concatenate(predictions_py,axis=0)
         print(label_py.shape)
@@ -75,14 +79,17 @@ def main():
         plt.xlabel('Label')
         plt.ylabel('Prediction')
         plt.title('Evaluation at step {}'.format(step))
+        plt.xlim(left = -10, right = 100)
+        plt.ylim(bottom = -10, top = 100)
         fig_path = os.path.join(args.log_dir,'eval-{0:08}.png'.format(step) )
         fig_path = 'eval.pdf'.format(step)
         plt.savefig(fig_path)
         plt.close()
 
         plt.figure()
-        plt.hist(label_py-predictions_py,50)
+        plt.hist(label_py-predictions_py, 50)
         fig_path = 'rez_hist.pdf'
+        plt.xlim(left = -1000, right = 5000)
         plt.savefig(fig_path)
         plt.close()
 
