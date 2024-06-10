@@ -22,7 +22,8 @@ class BarabasiAlbert(GraphProvider):
         self.nmin=10
         self.m = 2
     def _get(self):
-        return nx.barabasi_albert_graph(np.random.randint(self.nmin,self.n),self.m)
+        # set the generated graphs to be of constant sizes
+        return nx.barabasi_albert_graph(self.n ,self.m)
 
 class ErdosReni(GraphProvider):
     def __init__(self,n):
@@ -58,6 +59,18 @@ def make_sample(provider, rl=0.3, rh=0.7):
     p=1.0/(np.sum(A,axis=1)+1.0)
     R=np.multiply(A,p)
 
+    # Little's law (in queue thory)
+    # L = lambda * W
+    #
+    # where
+    # L - average number of customers
+    # lambda - average effective arrival rate [1/s]
+    # W - average delay [s]
+    #
+    # also
+    # mu - 1 / avg. service time [1/s]
+    # rho - lambda / mu; rho < 1
+
 
     lam=np.linalg.solve(np.identity(len(Gm))-np.transpose( R ) ,L)
     #random utilisation of each node
@@ -67,7 +80,9 @@ def make_sample(provider, rl=0.3, rh=0.7):
     #rho = 0.9 * np.ones(shape=lam.shape)
     mu = lam/rho
     ll=rho/(1-rho)
-    W=np.sum(ll)/np.sum(L)
+
+    #W=np.sum(ll)/np.sum(L)
+    W = ll / L
 
     #  Max value of W is of order n*0.99/(1 -0.99)
 
@@ -76,7 +91,7 @@ def make_sample(provider, rl=0.3, rh=0.7):
     it=np.nditer(R, order='F', flags=['multi_index'])
     at = {it.multi_index:float(x) for x in it if x > 0}
     nx.set_edge_attributes(Gm,name='R', values=at)
-    Gm.graph['W']=W
+    # Gm.graph['W'] = W not used later?
 
     return mu,L,R,W,Gm
 
@@ -106,7 +121,7 @@ def make_dataset(count, file, producer):
         example = tf.train.Example(features=tf.train.Features(feature={
             'mu': _float_feature(mu),
             'Lambda': _float_feature(L),
-            'W':_float_feature([W]),
+            'W':_float_feature(W),
             'R':_float_feature(e),
             'first':_int64_feature(first.tolist()),
             'second':_int64_feature(last.tolist()) }))
