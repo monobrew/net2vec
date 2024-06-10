@@ -103,3 +103,10 @@ ENV/
 # samples
 test.tfrecords
 train.tfrecords
+eval.tfrecords
+
+# PDFs
+*.pdf
+
+#logs
+log/*

@@ -139,7 +139,7 @@ def inference(batch,reuse=None):
     initializer=initializer):
         l=batch
         l=tf.layers.dense(l, args.ninf, activation=tf.nn.selu)
-        l=tf.layers.dense(l, 1)
+        l=tf.layers.dense(l, 40) # magic value, need better solution
         return l
     
 def make_batch(serialized_batch):
@@ -185,7 +185,7 @@ def make_batch(serialized_batch):
         _,batch,labelst = tf.while_loop(condition,body,[tf.constant(0),to,labelto])
         batch = batch.stack()
         labels = labelst.stack()
-        labels = tf.reshape(labels,[bs,1])
+        labels = tf.reshape(labels,[bs, 40]) # magic value will None work?
     return batch, labels
 def make_trainset():
     filename_queue = tf.train.string_input_producer( [args.train])
