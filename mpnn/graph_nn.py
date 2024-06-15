@@ -92,7 +92,7 @@ def R(h,x):
 
         return tf.reduce_sum(RR,axis=0)
 
-def graph_features(x,e,first,second):
+def graph_features(x,e,first,second, flag):
     global REUSE
     
     h=tf.pad(x,[[0,0],[0,N_PAD]])
@@ -161,7 +161,8 @@ def make_batch(serialized_batch):
                     "W":tf.FixedLenFeature([],tf.float32),
                     "R":tf.VarLenFeature(tf.float32),
                     "first":tf.VarLenFeature(tf.int64),
-                    "second":tf.VarLenFeature(tf.int64)})
+                    "second":tf.VarLenFeature(tf.int64),
+                    "flag": tf.VarLenFeature(tf.float32)})
 
                 ar=[(tf.sparse_tensor_to_dense(features['mu'])-args.mu_shift)/args.mu_scale,
                         (tf.sparse_tensor_to_dense(features['Lambda']))]
@@ -174,8 +175,9 @@ def make_batch(serialized_batch):
 
                 first=tf.sparse_tensor_to_dense(features['first'])
                 second=tf.sparse_tensor_to_dense(features['second'])
+                flag = tf.sparse_tensor_to_dense(features['flag'])
             
-        g_feature = graph_features(x,e,first,second) 
+        g_feature = graph_features(x,e,first,second, flag) 
         W = (features['W']-args.W_shift)/args.W_scale # 0.7-0.9
 
         return i+1,to.write(i,g_feature ),lto.write(i,W)
