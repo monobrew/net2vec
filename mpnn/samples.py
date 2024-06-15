@@ -54,7 +54,9 @@ def make_sample(provider, rl=0.3, rh=0.7):
     A=nx.convert_matrix.to_numpy_matrix(Gm)
 
     # Make all intensities addup to 1
-    L=np.random.uniform(size=(len(Gm),1))
+    L=np.random.uniform(0.1, 1, size=(len(Gm),1)) #add lower boundary
+    # beacuse of division, there was possibility of extremely big values in data set
+
     # L = L /np.sum(L) # L normaliztion not necessary
     p=1.0/(np.sum(A,axis=1)+1.0)
     R=np.multiply(A,p)
