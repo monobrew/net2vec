@@ -129,7 +129,7 @@ def make_dataset(count, file, producer):
             'R':_float_feature(e),
             'first':_int64_feature(first.tolist()),
             'second':_int64_feature(last.tolist()),
-            'flag': _float_feature(flag) })),
+            'flag': _float_feature(flag)}))
         writer.write(example.SerializeToString())
     writer.close()
 
