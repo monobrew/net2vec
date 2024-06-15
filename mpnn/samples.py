@@ -22,8 +22,8 @@ class BarabasiAlbert(GraphProvider):
         self.nmin=10
         self.m = 2
     def _get(self):
-        # set the generated graphs to be of constant sizes
-        return nx.barabasi_albert_graph(self.n ,self.m)
+        n = np.random.randint(self.nmin, self.n)
+        return nx.barabasi_albert_graph(n ,self.m)
 
 class ErdosReni(GraphProvider):
     def __init__(self,n):
@@ -55,9 +55,13 @@ def make_sample(provider, rl=0.3, rh=0.7):
 
     # Make all intensities addup to 1
     L=np.random.uniform(size=(len(Gm),1))
-    L = L /np.sum(L)
+    # L = L /np.sum(L) # L normaliztion not necessary
     p=1.0/(np.sum(A,axis=1)+1.0)
     R=np.multiply(A,p)
+
+    vertex_id = np.random.randint(len(Gm))
+    flag = [0] * len(Gm)
+    flag[vertex_id] = 1
 
     # Little's law (in queue thory)
     # L = lambda * W
@@ -82,9 +86,9 @@ def make_sample(provider, rl=0.3, rh=0.7):
     ll=rho/(1-rho)
 
     #W=np.sum(ll)/np.sum(L)
-    W = ll / L
-
-    #  Max value of W is of order n*0.99/(1 -0.99)
+    W_all = ll / L
+    W = W_all[vertex_id]
+    #  Max value of W is of order n*0.99/(1 -0.99) probably not
 
     nx.set_node_attributes(Gm, name='mu', values=dict(zip(Gm.nodes(),np.ndarray.tolist(mu[:,0]))))
     nx.set_node_attributes(Gm, name='Lambda', values=dict(zip(Gm.nodes(),np.ndarray.tolist(L[:,0]))))
@@ -93,7 +97,7 @@ def make_sample(provider, rl=0.3, rh=0.7):
     nx.set_edge_attributes(Gm,name='R', values=at)
     # Gm.graph['W'] = W not used later?
 
-    return mu,L,R,W,Gm
+    return mu,L,R,W,Gm,flag
 
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
@@ -109,7 +113,7 @@ def make_dataset(count, file, producer):
         if not i % 500:
             print('{} generated {} samples.'.format(str(datetime.datetime.now()) , i ) )
 
-        mu,L,R,W,Gm=producer()
+        mu,L,R,W,Gm,flag =producer()
         #while W > 3.3:
         #    mu,L,R,W,Gm=make_sample(n,p)
 
@@ -124,7 +128,8 @@ def make_dataset(count, file, producer):
             'W':_float_feature(W),
             'R':_float_feature(e),
             'first':_int64_feature(first.tolist()),
-            'second':_int64_feature(last.tolist()) }))
+            'second':_int64_feature(last.tolist()),
+            'flag': _float_feature(flag) })),
         writer.write(example.SerializeToString())
     writer.close()
 
