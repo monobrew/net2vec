@@ -79,8 +79,8 @@ def main():
         plt.xlabel('Label')
         plt.ylabel('Prediction')
         plt.title('Evaluation at step {}'.format(step))
-        plt.xlim(left = -10, right = 100)
-        plt.ylim(bottom = -10, top = 100)
+        #plt.xlim(left = -10, right = 100)
+        #plt.ylim(bottom = -10, top = 100)
         fig_path = os.path.join(args.log_dir,'eval-{0:08}.png'.format(step) )
         fig_path = 'eval.pdf'.format(step)
         plt.savefig(fig_path)
@@ -89,7 +89,7 @@ def main():
         plt.figure()
         plt.hist(label_py-predictions_py, 50)
         fig_path = 'rez_hist.pdf'
-        plt.xlim(left = -1000, right = 5000)
+        #plt.xlim(left = -1000, right = 5000)
         plt.savefig(fig_path)
         plt.close()
 
