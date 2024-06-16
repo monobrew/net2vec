@@ -63,7 +63,7 @@ def M(h,e):
 
 
         return m
-def U(h,m,x):
+def U(h, m, x, flag):
     init = tf.truncated_normal_initializer(stddev=0.01)
     with tf.variable_scope('update'):
         wz=tf.get_variable(name='wz',shape=(N_H,N_H),dtype=tf.float32)
@@ -72,7 +72,8 @@ def U(h,m,x):
         ur=tf.get_variable(name='ur',shape=(N_H,N_H),dtype=tf.float32)
         W=tf.get_variable(name='W',shape=(N_H,N_H),dtype=tf.float32)
         U=tf.get_variable(name='U',shape=(N_H,N_H),dtype=tf.float32)
-        
+
+        h = tf.concat([h[:, :-1], flag], axis = 1)
         z = tf.nn.sigmoid(tf.matmul(m,wz) + tf.matmul(h,uz))
         r = tf.nn.sigmoid(tf.matmul(m,wr) + tf.matmul(h,ur))
         h_tylda = tf.nn.tanh(tf.matmul(m,W) + tf.matmul(r*h,U) )
@@ -94,8 +95,11 @@ def R(h,x):
 
 def graph_features(x,e,first,second, flag):
     global REUSE
+
+    flag = tf.expand_dims(flag, axis = 1)
     
-    h=tf.pad(x,[[0,0],[0,N_PAD]])
+    h=tf.pad(x,[[0,0],[0,N_PAD-1]])
+    h = tf.concat([h, flag], axis = 1)
     #bs = tf.shape(x)[0]
     #h=tf.random_gamma((bs,N_H),2,2)
     #initializer =tf.truncated_normal_initializer(0.0, 0.2)
@@ -123,7 +127,7 @@ def graph_features(x,e,first,second, flag):
             
             num_segments=tf.cast(tf.reduce_max(second)+1,tf.int32)
             m = tf.unsorted_segment_sum(m,second,num_segments)
-            h = U(h,m,x)
+            h = U(h, m, x, flag)
 
             REUSE=True
         
