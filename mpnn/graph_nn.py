@@ -32,8 +32,8 @@ def stat_args(name, shift=0,scale=1):
         help='Scale  for {} (usualy np.std)'.format(name) ,  
         type=float, default=scale)
 
-stat_args('mu',shift=0.34, scale=0.27)
-stat_args('W',shift=55.3, scale=22.0)
+stat_args('mu',shift = 0.34, scale = 0.27)
+stat_args('W',shift = 0.5, scale = 18.9)
 
 if __name__ == '__main__':
     args = parser.parse_args()
