@@ -23,6 +23,7 @@ parser.add_argument('--test', help='test file',  type=str, default='test.tfrecor
 parser.add_argument('--ninf', help='Number of hidden neurions in inference layer', type=int, default=256)
 parser.add_argument('--Mhid', help='Number of hidden neurons in message layer', type=int, default=8)
 parser.add_argument('--rnn_arch', help='RNN architecture used in update layer (simple_rnn, lstm, gru [default])', type=str, default='gru')
+parser.add_argument('-f')
 
 def stat_args(name, shift=0,scale=1):
     parser.add_argument('--{}-shift'.format(name), 
