@@ -22,6 +22,7 @@ parser.add_argument('--train', help='train file',  type=str, default='train.tfre
 parser.add_argument('--test', help='test file',  type=str, default='test.tfrecords')
 parser.add_argument('--ninf', help='Number of hidden neurions in inference layer', type=int, default=256)
 parser.add_argument('--Mhid', help='Number of hidden neurons in message layer', type=int, default=8)
+parser.add_argument('--rnn_arch', help='RNN architecture used in update layer (simple_rnn, lstm, gru [default])', type=str, default='gru')
 
 def stat_args(name, shift=0,scale=1):
     parser.add_argument('--{}-shift'.format(name), 
@@ -61,9 +62,42 @@ def M(h,e):
         b = tf.layers.dense(b,N_H)
         m = m + b
 
+rnn_arch = args.rnn_arch
+
+def U_RNN(h, m, x, flag):
+        with tf.variable_scope('update'):
+            hm = tf.concat([h[:,: -1], flag, m])
+            u = tf.layers.dense(hm, N_H, activation = tf.nn.relu)
+            u = tf.layers.dense(u, N_H)
+            return u
+
+def U_LSTM(h, m, x, flag):
+        with tf.variable_scope('update'):
+            c = tf.get_variable(name='c', shape=(N_H,), dtype=tf.float32)
+            bf = tf.get_variable(name='bf', shape=(N_H,), dtype=tf.float32)
+            wf = tf.get_variable(name='wf', shape=(N_H, N_H), dtype=tf.float32)
+            uf = tf.get_variable(name='uf', shape=(N_H, N_H), dtype=tf.float32)
+            bi = tf.get_variable(name='bi', shape=(N_H,), dtype=tf.float32)
+            wi = tf.get_variable(name='wi', shape=(N_H, N_H), dtype=tf.float32)
+            ui = tf.get_variable(name='ui', shape=(N_H, N_H), dtype=tf.float32)
+            bo = tf.get_variable(name='bo', shape=(N_H,), dtype=tf.float32)
+            wo = tf.get_variable(name='wo', shape=(N_H, N_H), dtype=tf.float32)
+            uo = tf.get_variable(name='uo', shape=(N_H, N_H), dtype=tf.float32)
+            bc = tf.get_variable(name='bc', shape=(N_H,), dtype=tf.float32)
+            wc = tf.get_variable(name='wc', shape=(N_H, N_H), dtype=tf.float32)
+            uc = tf.get_variable(name='uc', shape=(N_H, N_H), dtype=tf.float32)
+
+            ft = tf.nn.sigmoid(tf.matmul(m, wf) + tf.matmul(h, uf) + bf)
+            it = tf.nn.sigmoid(tf.matmul(m, wi) + tf.matmul(h, ui) + bi)
+            ot = tf.nn.sigmoid(tf.matmul(m, wo) + tf.matmul(h, uo) + bo)
+            c_tylda = tf.nn.sigmoid(tf.matmul(m, wc) + tf.matmul(h, uc) + bc)
+            c = tf.math.multiply(ft, c) + tf.math.multiply(it, c_tylda)
+            u = tf.math.multiply(ot, tf.nn.sigmoid(c))
+            return u
+            
 
         return m
-def U(h, m, x, flag):
+def U_GRU(h, m, x, flag):
     init = tf.truncated_normal_initializer(stddev=0.01)
     with tf.variable_scope('update'):
         wz=tf.get_variable(name='wz',shape=(N_H,N_H),dtype=tf.float32)
@@ -79,6 +113,8 @@ def U(h, m, x, flag):
         h_tylda = tf.nn.tanh(tf.matmul(m,W) + tf.matmul(r*h,U) )
         u = (1.0-z)*h + z*h_tylda
         return u
+
+U = U_RNN if rnn_arch == 'simple_rnn' else U_LSTM if rnn_arch=='lstm' else U_GRU
 
 def R(h,x):
     with tf.variable_scope('readout'):
