@@ -12,6 +12,18 @@ import graph_nn
 
 args = graph_nn.args
 
+rnn_arch = args.rnn_arch
+used_architecture = None
+if (rnn_arch == 'gru'):
+    used_architecture = 'GRU'
+elif (rnn_arch == 'lstm'):
+    used_architecture = 'LSTM'
+elif (rnn_arch == 'simple_rnn'):
+    used_architecture = 'Vanilla RNN'
+else:
+    print('Bad RNN achitecture: ' + rnn_arch)
+    exit()
+
 def make_set():
     #filename_queue = tf.train.string_input_producer( ['test.tfrecords'])
     #reader = tf.TFRecordReader()
@@ -78,7 +90,7 @@ def main():
         plt.grid('on')
         plt.xlabel('Label')
         plt.ylabel('Prediction')
-        plt.title('Evaluation at step {}'.format(step))
+        plt.title('Evaluation at step {} using {} architecture'.format(step, used_architecture))
         #plt.xlim(left = -10, right = 100)
         #plt.ylim(bottom = -10, top = 100)
         fig_path = os.path.join(args.log_dir,'eval-{0:08}.png'.format(step) )
