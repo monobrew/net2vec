@@ -92,9 +92,9 @@ def U_LSTM(h, m, x, flag, c):
             ft = tf.nn.sigmoid(tf.matmul(m, wf) + tf.matmul(h, uf) + bf)
             it = tf.nn.sigmoid(tf.matmul(m, wi) + tf.matmul(h, ui) + bi)
             ot = tf.nn.sigmoid(tf.matmul(m, wo) + tf.matmul(h, uo) + bo)
-            c_tylda = tf.nn.sigmoid(tf.matmul(m, wc) + tf.matmul(h, uc) + bc)
+            c_tylda = tf.nn.tanh(tf.matmul(m, wc) + tf.matmul(h, uc) + bc)
             c = tf.math.multiply(ft, c) + tf.math.multiply(it, c_tylda)
-            u = tf.math.multiply(ot, tf.nn.sigmoid(c))
+            u = tf.math.multiply(ot, tf.nn.tanh(c))
             return u, c
             
 def U_GRU(h, m, x, flag, c):
