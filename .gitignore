@@ -107,6 +107,7 @@ eval.tfrecords
 
 # PDFs
 *.pdf
+results/
 
 #logs
 log/*

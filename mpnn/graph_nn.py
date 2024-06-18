@@ -39,7 +39,7 @@ stat_args('W',shift = 0.5, scale = 18.9)
 if __name__ == '__main__':
     args = parser.parse_args()
 else:
-    args = parser.parse_args([])
+    args = parser.parse_args()
 
 def test():
     return args.I
@@ -115,7 +115,20 @@ def U_GRU(h, m, x, flag):
         u = (1.0-z)*h + z*h_tylda
         return u
 
-U = U_RNN if rnn_arch == 'simple_rnn' else U_LSTM if rnn_arch=='lstm' else U_GRU
+U = None
+
+if (rnn_arch == 'gru'):
+    U = U_GRU
+    print('Using GRU architecture for upadate layer')
+elif (rnn_arch == 'lstm'):
+    U = U_LSTM
+    print('Using LSTM architecture for upadate layer')
+elif (rnn_arch == 'simple_rnn'):
+    U = U_RNN
+    print('Using vanilla RNN architecture for upadate layer')
+else:
+    print('Bad RNN achitecture: ' + rnn_arch)
+    exit()
 
 def R(h,x):
     with tf.variable_scope('readout'):
