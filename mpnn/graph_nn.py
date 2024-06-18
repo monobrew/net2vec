@@ -61,14 +61,15 @@ def M(h,e):
         b = tf.layers.dense(e,args.Mhid ,activation=tf.nn.selu)
         b = tf.layers.dense(b,N_H)
         m = m + b
+        return m
 
 rnn_arch = args.rnn_arch
 
 def U_RNN(h, m, x, flag):
         with tf.variable_scope('update'):
-            hm = tf.concat([h[:,: -1], flag, m])
+            hm = h + m
+            hm = tf.concat([hm[:, :-1], flag], axis = 1)
             u = tf.layers.dense(hm, N_H, activation = tf.nn.relu)
-            u = tf.layers.dense(u, N_H)
             return u
 
 def U_LSTM(h, m, x, flag):
@@ -87,6 +88,8 @@ def U_LSTM(h, m, x, flag):
             wc = tf.get_variable(name='wc', shape=(N_H, N_H), dtype=tf.float32)
             uc = tf.get_variable(name='uc', shape=(N_H, N_H), dtype=tf.float32)
 
+            h = tf.concat([h[:, :-1], flag], axis = 1)
+
             ft = tf.nn.sigmoid(tf.matmul(m, wf) + tf.matmul(h, uf) + bf)
             it = tf.nn.sigmoid(tf.matmul(m, wi) + tf.matmul(h, ui) + bi)
             ot = tf.nn.sigmoid(tf.matmul(m, wo) + tf.matmul(h, uo) + bo)
@@ -95,8 +98,6 @@ def U_LSTM(h, m, x, flag):
             u = tf.math.multiply(ot, tf.nn.sigmoid(c))
             return u
             
-
-        return m
 def U_GRU(h, m, x, flag):
     init = tf.truncated_normal_initializer(stddev=0.01)
     with tf.variable_scope('update'):
