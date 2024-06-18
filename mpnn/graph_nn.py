@@ -65,16 +65,15 @@ def M(h,e):
 
 rnn_arch = args.rnn_arch
 
-def U_RNN(h, m, x, flag):
+def U_RNN(h, m, x, flag, c):
         with tf.variable_scope('update'):
             hm = h + m
             hm = tf.concat([hm[:, :-1], flag], axis = 1)
             u = tf.layers.dense(hm, N_H, activation = tf.nn.relu)
             return u
 
-def U_LSTM(h, m, x, flag):
+def U_LSTM(h, m, x, flag, c):
         with tf.variable_scope('update'):
-            c = tf.get_variable(name='c', shape=(N_H,), dtype=tf.float32)
             bf = tf.get_variable(name='bf', shape=(N_H,), dtype=tf.float32)
             wf = tf.get_variable(name='wf', shape=(N_H, N_H), dtype=tf.float32)
             uf = tf.get_variable(name='uf', shape=(N_H, N_H), dtype=tf.float32)
@@ -96,9 +95,9 @@ def U_LSTM(h, m, x, flag):
             c_tylda = tf.nn.sigmoid(tf.matmul(m, wc) + tf.matmul(h, uc) + bc)
             c = tf.math.multiply(ft, c) + tf.math.multiply(it, c_tylda)
             u = tf.math.multiply(ot, tf.nn.sigmoid(c))
-            return u
+            return u, c
             
-def U_GRU(h, m, x, flag):
+def U_GRU(h, m, x, flag, c):
     init = tf.truncated_normal_initializer(stddev=0.01)
     with tf.variable_scope('update'):
         wz=tf.get_variable(name='wz',shape=(N_H,N_H),dtype=tf.float32)
@@ -113,7 +112,7 @@ def U_GRU(h, m, x, flag):
         r = tf.nn.sigmoid(tf.matmul(m,wr) + tf.matmul(h,ur))
         h_tylda = tf.nn.tanh(tf.matmul(m,W) + tf.matmul(r*h,U) )
         u = (1.0-z)*h + z*h_tylda
-        return u
+        return u, c
 
 U = None
 
@@ -150,6 +149,8 @@ def graph_features(x,e,first,second, flag):
     
     h=tf.pad(x,[[0,0],[0,N_PAD-1]])
     h = tf.concat([h, flag], axis = 1)
+    c = tf.zeros((N_H,)) # used only in LSTM
+
     #bs = tf.shape(x)[0]
     #h=tf.random_gamma((bs,N_H),2,2)
     #initializer =tf.truncated_normal_initializer(0.0, 0.2)
@@ -177,7 +178,7 @@ def graph_features(x,e,first,second, flag):
             
             num_segments=tf.cast(tf.reduce_max(second)+1,tf.int32)
             m = tf.unsorted_segment_sum(m,second,num_segments)
-            h = U(h, m, x, flag)
+            h, c = U(h, m, x, flag, c)
 
             REUSE=True
         
