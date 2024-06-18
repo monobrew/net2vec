@@ -70,7 +70,7 @@ def U_RNN(h, m, x, flag, c):
             hm = h + m
             hm = tf.concat([hm[:, :-1], flag], axis = 1)
             u = tf.layers.dense(hm, N_H, activation = tf.nn.relu)
-            return u
+            return u, c
 
 def U_LSTM(h, m, x, flag, c):
         with tf.variable_scope('update'):
